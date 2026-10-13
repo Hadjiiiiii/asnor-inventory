@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // The sale dialog opened from a row already knows its product and only needs customers.
+  const contactsOnly = new URL(request.url).searchParams.get("scope") === "contacts";
+
   const [products, contacts] = await Promise.all([
-    prisma.product.findMany({
+    contactsOnly ? Promise.resolve([]) : prisma.product.findMany({
       where: { status: { not: "SOLD" } },
       select: {
         id: true,

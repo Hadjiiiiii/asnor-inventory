@@ -1,3 +1,5 @@
+import { shopDate } from "@/lib/shop-time";
+
 export type DashboardPeriodRow = {
   period: "month" | "day";
   bucket: Date | string;
@@ -7,7 +9,10 @@ export type DashboardPeriodRow = {
 
 type Totals = { sales: number; profit: number };
 
-export function buildDashboardPeriods(rows: DashboardPeriodRow[], now: Date) {
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** `now` is read as a calendar day in `timeZone`, so "this month" and its day list follow the shop's calendar. */
+export function buildDashboardPeriods(rows: DashboardPeriodRow[], now: Date, timeZone?: string) {
   const monthlyTotals = new Map<string, Totals>();
   const dailyTotals = new Map<string, Totals>();
 
@@ -23,26 +28,25 @@ export function buildDashboardPeriods(rows: DashboardPeriodRow[], now: Date) {
     else dailyTotals.set(key, totals);
   }
 
+  const today = shopDate(now, timeZone);
+
   const monthlyChart: { month: string; sales: number; profit: number }[] = [];
   for (let offset = 5; offset >= 0; offset--) {
-    const month = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-    const key = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+    // UTC arithmetic only, so the server's own zone cannot shift a month.
+    const month = new Date(Date.UTC(today.year, today.month - 1 - offset, 1));
+    const key = `${month.getUTCFullYear()}-${pad(month.getUTCMonth() + 1)}`;
     const totals = monthlyTotals.get(key) ?? { sales: 0, profit: 0 };
 
     monthlyChart.push({
-      month: month.toLocaleDateString("en-US", { month: "short" }),
+      month: month.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
       sales: totals.sales,
       profit: totals.profit,
     });
   }
 
   const dailyBreakdown: { date: string; sales: number; profit: number }[] = [];
-  for (
-    let day = new Date(now.getFullYear(), now.getMonth(), 1);
-    day <= now;
-    day.setDate(day.getDate() + 1)
-  ) {
-    const key = day.toISOString().slice(0, 10);
+  for (let day = 1; day <= today.day; day++) {
+    const key = `${today.year}-${pad(today.month)}-${pad(day)}`;
     const totals = dailyTotals.get(key) ?? { sales: 0, profit: 0 };
     dailyBreakdown.push({ date: key, ...totals });
   }

@@ -5,6 +5,12 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { PAGE_SIZE } from "@/lib/page-size";
 import { TransactionType } from "@/generated/prisma/client";
+import { PRODUCT_LIMITS } from "@/lib/product-limits";
+import { formatMoney } from "@/lib/product-validation";
+import { parseSaleDate } from "@/lib/sale";
+
+/** Thrown inside the transaction to abort it with a message that is safe to show to the user. */
+class PurchaseError extends Error {}
 
 export type TransactionWithRelations = Awaited<ReturnType<typeof getTransactions>>["transactions"][number];
 
@@ -64,53 +70,74 @@ export async function getTransactions(params: GetTransactionsParams = {}) {
 
 export async function createBuyTransaction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
   const session = await auth();
-  if (!session) throw new Error("Unauthorized");
+  if (!session) return { error: "Your session has expired. Sign in again to continue." };
 
-  const productId = formData.get("productId") as string;
-  const contactId = (formData.get("contactId") as string) || null;
-  const quantity = parseInt(formData.get("quantity") as string) || 1;
-  const unitPrice = parseFloat(formData.get("unitPrice") as string);
-  const notes = (formData.get("notes") as string) || null;
-  const dateStr = formData.get("date") as string;
+  const productId = String(formData.get("productId") ?? "");
+  const contactId = String(formData.get("contactId") ?? "") || null;
+  const quantity = parseInt(String(formData.get("quantity") ?? ""), 10);
+  const unitPrice = parseFloat(String(formData.get("unitPrice") ?? ""));
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const dateStr = String(formData.get("date") ?? "");
 
-  if (!productId || isNaN(unitPrice)) {
-    return { error: "Product and unit price are required" };
+  if (!productId) return { error: "Choose the product that was bought" };
+  if (!Number.isFinite(unitPrice) || unitPrice < 0 || unitPrice > PRODUCT_LIMITS.maxPrice) {
+    return { error: `Enter a unit price between 0 and ${formatMoney(PRODUCT_LIMITS.maxPrice)}` };
+  }
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > PRODUCT_LIMITS.maxQuantity) {
+    return { error: "Quantity must be a whole number of at least 1" };
+  }
+  if (notes && notes.length > PRODUCT_LIMITS.notes) {
+    return { error: `Notes must be ${PRODUCT_LIMITS.notes} characters or fewer` };
+  }
+  let date: Date | undefined;
+  if (dateStr) {
+    const parsed = parseSaleDate(dateStr);
+    if (!parsed) return { error: "Enter a valid purchase date" };
+    if (parsed.getTime() > Date.now() + 24 * 60 * 60 * 1000) return { error: "The purchase date can't be in the future" };
+    date = parsed;
   }
 
-  const totalPrice = unitPrice * quantity;
-  const date = dateStr ? new Date(dateStr) : new Date();
+  try {
+    // The purchase record and the product's new cost and stock commit together or not at all.
+    await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: productId }, select: { type: true } });
+      if (!product) throw new PurchaseError("Product not found");
+      if (contactId) {
+        const contact = await tx.contact.findUnique({ where: { id: contactId }, select: { type: true } });
+        if (!contact || contact.type === "CUSTOMER") throw new PurchaseError("Choose a supplier from the list");
+      }
 
-  // Create the transaction
-  await prisma.transaction.create({
-    data: {
-      type: TransactionType.BUY,
-      date,
-      productId,
-      contactId,
-      quantity,
-      unitPrice,
-      totalPrice,
-      notes,
-    },
-  });
+      await tx.transaction.create({
+        data: {
+          type: TransactionType.BUY,
+          ...(date && { date }),
+          productId,
+          contactId,
+          quantity,
+          unitPrice,
+          totalPrice: Math.round(unitPrice * quantity * 100) / 100,
+          notes,
+        },
+      });
 
-  // Update product purchase price and quantity (for accessories)
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (product) {
-    const updateData: Record<string, unknown> = {
-      purchasePrice: unitPrice,
-    };
-    if (product.type === "ACCESSORY") {
-      updateData.quantity = product.quantity + quantity;
-    }
-    await prisma.product.update({
-      where: { id: productId },
-      data: updateData,
+      await tx.product.update({
+        where: { id: productId },
+        data: {
+          purchasePrice: unitPrice,
+          // Accessories are counted; a device purchase only records its cost.
+          ...(product.type === "ACCESSORY" && { quantity: { increment: quantity } }),
+        },
+      });
     });
+  } catch (e) {
+    if (e instanceof PurchaseError) return { error: e.message };
+    console.error("Record purchase failed", e);
+    return { error: "Couldn't record the purchase. Nothing was changed; please try again." };
   }
 
   revalidatePath("/transactions");
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${productId}`);
+  revalidatePath("/dashboard");
   return { success: true };
 }

@@ -7,7 +7,7 @@ import { PAGE_SIZE } from "@/lib/page-size";
 import { Condition, ProductStatus, ProductType } from "@/generated/prisma/client";
 import { PRODUCT_LIMITS } from "@/lib/product-limits";
 import { formatMoney, validateProductFields } from "@/lib/product-validation";
-import { UNDO_WINDOW_MS, parseSaleDate, saleProfit } from "@/lib/sale";
+import { parseSaleDate, saleProfit, undoBlocker } from "@/lib/sale";
 
 type ActionResult = { error?: string; field?: string; success?: boolean; id?: string };
 
@@ -485,12 +485,9 @@ export async function markProductAsSold(
         throw new SaleError("This item was just sold or changed by someone else. Refresh to see its current state.");
       }
 
-      if (product.type === ProductType.ACCESSORY) {
-        const remaining = product.quantity - quantity;
-        await tx.product.update({
-          where: { id },
-          data: { status: remaining === 0 ? ProductStatus.SOLD : ProductStatus.AVAILABLE },
-        });
+      // Only an emptied shelf changes status; a reserved pack stays reserved while units remain.
+      if (product.type === ProductType.ACCESSORY && product.quantity - quantity === 0) {
+        await tx.product.update({ where: { id }, data: { status: ProductStatus.SOLD } });
       }
 
       const purchasePrice = product.purchasePrice ? Number(product.purchasePrice) : null;
@@ -557,17 +554,13 @@ export async function undoSale(
       if (!sale || sale.type !== "SELL") throw new SaleError("This sale was already undone or can't be found.");
       productId = sale.productId;
 
-      if (Date.now() - sale.createdAt.getTime() > UNDO_WINDOW_MS) {
-        throw new SaleError(`It has been more than ${UNDO_WINDOW_MS / 60000} minutes, so this sale can no longer be undone here.`);
-      }
       const latest = await tx.transaction.findFirst({
         where: { productId: sale.productId },
         orderBy: { createdAt: "desc" },
         select: { id: true },
       });
-      if (latest?.id !== sale.id) {
-        throw new SaleError("Something else was recorded for this product since, so this sale can't be undone.");
-      }
+      const blocked = undoBlocker(sale, latest?.id);
+      if (blocked) throw new SaleError(blocked);
 
       // Deleting by id inside the transaction means two people pressing Undo cannot both restore stock.
       const removed = await tx.transaction.deleteMany({ where: { id: sale.id } });

@@ -144,13 +144,14 @@ export async function deleteContact(id: string): Promise<ContactResult> {
   if (!session) return { error: SESSION_EXPIRED };
 
   try {
-    // The foreign key is the real guard: a sale recorded between a pre-check and the delete still can't orphan it.
+    // The relation is optional, so the database would null the link on delete rather than refuse; check here.
+    const history = await prisma.transaction.count({ where: { contactId: id } });
+    if (history > 0) {
+      return { error: "This contact has transaction history, so it can't be deleted." };
+    }
     await prisma.contact.delete({ where: { id } });
   } catch (e) {
     const code = (e as { code?: string } | null)?.code;
-    if (code === "P2003") {
-      return { error: "This contact has transaction history, so it can't be deleted." };
-    }
     if (code === "P2025") {
       return { error: "This contact was already deleted." };
     }

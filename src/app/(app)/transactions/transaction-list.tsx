@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, ArrowLeftRight, ShoppingCart, DollarSign } from "lucide-react";
 import { Pagination } from "@/components/pagination";
 import { PAGE_SIZE } from "@/lib/page-size";
+import { localDateString } from "@/lib/sale";
 import { createBuyTransaction } from "./actions";
 import { SaleDialog } from "../inventory/sale-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -36,6 +37,7 @@ export function TransactionList({ transactions, total, pages, currentPage }: Tra
   const [showBuyDialog, setShowBuyDialog] = useState(false);
   const [showSellDialog, setShowSellDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [contacts, setContacts] = useState<{ id: string; name: string; type: string }[]>([]);
 
@@ -43,12 +45,15 @@ export function TransactionList({ transactions, total, pages, currentPage }: Tra
   useEffect(() => {
     if (showBuyDialog) {
       fetch("/api/transactions/data")
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json();
+        })
         .then((data) => {
           setProducts(data.products || []);
           setContacts(data.contacts || []);
         })
-        .catch(() => {});
+        .catch(() => setBuyError("We couldn't load your products. Close this and try again."));
     }
   }, [showBuyDialog]);
 
@@ -65,16 +70,26 @@ export function TransactionList({ transactions, total, pages, currentPage }: Tra
     updateFilters("search", searchValue);
   }
 
+  function openBuyDialog() {
+    setBuyError(null);
+    setShowBuyDialog(true);
+  }
+
   async function handleBuy(formData: FormData) {
     setIsLoading(true);
-    const result = await createBuyTransaction(formData);
-    setIsLoading(false);
-
-    if (result.error) {
-      addToast(result.error, "error");
-    } else {
+    setBuyError(null);
+    try {
+      const result = await createBuyTransaction(formData);
+      if (result.error) {
+        setBuyError(result.error);
+        return;
+      }
       addToast("Purchase recorded", "success");
       setShowBuyDialog(false);
+    } catch {
+      setBuyError("We couldn't reach the server. The purchase wasn't recorded; check your connection and try again.");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -101,7 +116,7 @@ export function TransactionList({ transactions, total, pages, currentPage }: Tra
           <Button type="submit" variant="secondary">Search</Button>
         </form>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setShowBuyDialog(true)}>
+          <Button variant="outline" onClick={openBuyDialog}>
             <ShoppingCart className="h-4 w-4" />
             Record Purchase
           </Button>
@@ -137,7 +152,7 @@ export function TransactionList({ transactions, total, pages, currentPage }: Tra
                 Record your first purchase or sale to get started
               </p>
               <div className="flex gap-2 mt-4">
-                <Button variant="outline" onClick={() => setShowBuyDialog(true)}>
+                <Button variant="outline" onClick={openBuyDialog}>
                   <ShoppingCart className="h-4 w-4" />
                   Record Purchase
                 </Button>
@@ -253,8 +268,8 @@ export function TransactionList({ transactions, total, pages, currentPage }: Tra
       </Card>
 
       {/* Buy Dialog */}
-      <Dialog open={showBuyDialog} onOpenChange={setShowBuyDialog}>
-        <DialogContent onClose={() => setShowBuyDialog(false)} className="max-w-md">
+      <Dialog open={showBuyDialog} onOpenChange={(open) => !isLoading && setShowBuyDialog(open)}>
+        <DialogContent onClose={() => !isLoading && setShowBuyDialog(false)} className="max-w-md">
           <DialogHeader>
             <DialogTitle>Record Purchase</DialogTitle>
           </DialogHeader>
@@ -289,14 +304,17 @@ export function TransactionList({ transactions, total, pages, currentPage }: Tra
             </div>
             <div className="space-y-2">
               <Label htmlFor="buy-date">Date</Label>
-              <Input id="buy-date" name="date" type="date" defaultValue={new Date().toISOString().split("T")[0]} />
+              <Input id="buy-date" name="date" type="date" defaultValue={localDateString()} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="buy-notes">Notes</Label>
               <Textarea id="buy-notes" name="notes" placeholder="Purchase details..." rows={2} />
             </div>
+            {buyError && (
+              <p role="alert" className="text-sm text-destructive">{buyError}</p>
+            )}
             <div className="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={() => setShowBuyDialog(false)}>Cancel</Button>
+              <Button type="button" variant="outline" disabled={isLoading} onClick={() => setShowBuyDialog(false)}>Cancel</Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Recording..." : "Record Purchase"}
               </Button>

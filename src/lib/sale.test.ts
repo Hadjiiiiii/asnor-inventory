@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { localDateString, matchProducts, parseSaleDate, saleProfit } from "./sale";
+import { UNDO_WINDOW_MS, localDateString, matchProducts, parseSaleDate, saleProfit, undoBlocker } from "./sale";
 
 test("profit is price minus cost times quantity, rounded to cents", () => {
   assert.equal(saleProfit(480, 385, 1), 95);
@@ -51,4 +51,21 @@ test("empty and unmatched queries behave", () => {
   assert.equal(matchProducts(stock, "   ").length, 4);
   assert.equal(matchProducts(stock, "zzz").length, 0);
   assert.equal(matchProducts(stock, "a", 2).length, 2);
+});
+
+test("a fresh sale that is still the latest can be undone", () => {
+  const sale = { id: "t1", createdAt: new Date(1_000_000) };
+  assert.equal(undoBlocker(sale, "t1", 1_000_000 + 60_000), null);
+  assert.equal(undoBlocker(sale, "t1", 1_000_000 + UNDO_WINDOW_MS), null);
+});
+
+test("an old sale cannot be undone, whatever else is true", () => {
+  const sale = { id: "t1", createdAt: new Date(1_000_000) };
+  assert.match(undoBlocker(sale, "t1", 1_000_000 + UNDO_WINDOW_MS + 1) ?? "", /more than 10 minutes/);
+});
+
+test("a sale followed by another transaction cannot be undone", () => {
+  const sale = { id: "t1", createdAt: new Date(1_000_000) };
+  assert.match(undoBlocker(sale, "t2", 1_000_000 + 1000) ?? "", /Something else/);
+  assert.match(undoBlocker(sale, undefined, 1_000_000 + 1000) ?? "", /Something else/);
 });

@@ -8,6 +8,7 @@ import { DashboardCharts } from "./dashboard-charts";
 import { MetricDialogCard } from "./metric-dialog-card";
 import { buildDashboardPeriods, type DashboardPeriodRow } from "./dashboard-periods";
 import Link from "next/link";
+import { SHOP_TIMEZONE, shopDate, shopDayStart } from "@/lib/shop-time";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,14 @@ const cardLinkClass =
 
 async function getDashboardData() {
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  // Day and month boundaries follow the shop's calendar (SHOP_TIMEZONE), not the server's.
+  const { year, month, day } = shopDate(now);
+  const startOfMonth = shopDayStart(year, month, 1);
+  const startOfToday = shopDayStart(year, month, day);
+  const startOfLastMonth = shopDayStart(year, month - 1, 1);
+  const sixMonthsAgo = shopDayStart(year, month - 5, 1);
+  // Read as UTC wall-clock, then shifted into the shop's zone, so buckets match the boundaries above.
+  const sqlZone = SHOP_TIMEZONE ?? "UTC";
 
   const [
     deviceInventory,
@@ -49,7 +54,7 @@ async function getDashboardData() {
     }),
     // Last month's sales (for comparison)
     prisma.transaction.aggregate({
-      where: { type: "SELL", date: { gte: startOfLastMonth, lte: endOfLastMonth } },
+      where: { type: "SELL", date: { gte: startOfLastMonth, lt: startOfMonth } },
       _sum: { totalPrice: true },
       _count: true,
     }),
@@ -65,29 +70,28 @@ async function getDashboardData() {
     // Aggregate the six-month chart and current-month breakdown in the database.
     prisma.$queryRaw<DashboardPeriodRow[]>`
       WITH sales AS MATERIALIZED (
-        SELECT date, "totalPrice", profit
+        SELECT (date AT TIME ZONE 'UTC') AT TIME ZONE ${sqlZone}::text AS local_date, date, "totalPrice", profit
         FROM transactions
-        WHERE type = 'SELL' AND date >= ${new Date(now.getFullYear(), now.getMonth() - 5, 1)}
+        WHERE type = 'SELL' AND date >= ${sixMonthsAgo}
       ),
       monthly AS (
         SELECT
           'month'::text AS period,
-          date_trunc('month', date)::date AS bucket,
+          date_trunc('month', local_date)::date AS bucket,
           SUM("totalPrice") AS sales,
           SUM(COALESCE(profit, 0)) AS profit
         FROM sales
-        WHERE date <= date_trunc('month', date) + INTERVAL '1 month' - INTERVAL '1 day'
-        GROUP BY date_trunc('month', date)
+        GROUP BY date_trunc('month', local_date)
       ),
       daily AS (
         SELECT
           'day'::text AS period,
-          date_trunc('day', date)::date AS bucket,
+          date_trunc('day', local_date)::date AS bucket,
           SUM("totalPrice") AS sales,
           SUM(COALESCE(profit, 0)) AS profit
         FROM sales
         WHERE date >= ${startOfMonth} AND date <= ${now}
-        GROUP BY date_trunc('day', date)
+        GROUP BY date_trunc('day', local_date)
       )
       SELECT period, bucket, sales, profit FROM monthly
       UNION ALL
@@ -113,7 +117,7 @@ async function getDashboardData() {
     .filter((p) => p.lowStockThreshold !== null && p.quantity < p.lowStockThreshold)
     .sort((a, b) => a.quantity - b.quantity || a.name.localeCompare(b.name));
 
-  const { monthlyChart, dailyBreakdown } = buildDashboardPeriods(dashboardPeriods, now);
+  const { monthlyChart, dailyBreakdown } = buildDashboardPeriods(dashboardPeriods, now, SHOP_TIMEZONE);
 
   return {
     deviceInventory,
@@ -154,6 +158,7 @@ export default async function DashboardPage() {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: SHOP_TIMEZONE,
   }).format(new Date());
 
   return (

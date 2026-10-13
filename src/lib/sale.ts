@@ -3,6 +3,21 @@
 /** How long after a sale it can still be undone. Enforced on the server. */
 export const UNDO_WINDOW_MS = 10 * 60 * 1000;
 
+/** Why a sale can no longer be undone, or null when it can. Pure so the rules are testable without a database. */
+export function undoBlocker(
+  sale: { id: string; createdAt: Date },
+  latestId: string | undefined,
+  now: number = Date.now(),
+): string | null {
+  if (now - sale.createdAt.getTime() > UNDO_WINDOW_MS) {
+    return `It has been more than ${UNDO_WINDOW_MS / 60000} minutes, so this sale can no longer be undone here.`;
+  }
+  if (latestId !== sale.id) {
+    return "Something else was recorded for this product since, so this sale can't be undone.";
+  }
+  return null;
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Profit on a sale, or null when the unit's cost was never recorded (unknown is not the same as zero). */

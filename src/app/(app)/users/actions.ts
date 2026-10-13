@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth, forgetUser } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { PAGE_SIZE } from "@/lib/page-size";
@@ -102,6 +102,7 @@ export async function deleteUser(userId: string): Promise<UserResult> {
 
   try {
     await prisma.user.delete({ where: { id: userId } });
+    forgetUser(userId);
   } catch (e) {
     if ((e as { code?: string } | null)?.code === "P2025") {
       return { error: "This user was already deleted." };
@@ -127,6 +128,7 @@ export async function updateUserRole(userId: string, role: "ADMIN" | "STAFF"): P
 
   try {
     await prisma.user.update({ where: { id: userId }, data: { role } });
+    forgetUser(userId);
   } catch (e) {
     if ((e as { code?: string } | null)?.code === "P2025") {
       return { error: "This user no longer exists." };
