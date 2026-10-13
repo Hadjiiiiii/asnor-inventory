@@ -50,11 +50,39 @@ function DialogContent({
   const ref = React.useRef<HTMLDivElement>(null);
 
   // Move focus into the dialog so keyboard and screen-reader users land inside it,
-  // unless a child (an autoFocus field) already took it.
+  // unless a child (an autoFocus field) already took it. Hand it back to the trigger on close.
   React.useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const el = ref.current;
     if (el && !el.contains(document.activeElement)) el.focus();
+    return () => {
+      if (trigger?.isConnected) trigger.focus();
+    };
   }, []);
+
+  // Keep Tab inside the dialog: wrap from the last control to the first and back.
+  function trapTab(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "Tab" || !ref.current) return;
+    const focusable = Array.from(
+      ref.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((node) => !node.hidden && node.offsetParent !== null);
+    if (focusable.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === ref.current)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 
   return (
     <TitleIdContext.Provider value={titleId}>
@@ -69,6 +97,7 @@ function DialogContent({
           className
         )}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={trapTab}
       >
         {onClose && (
           <button

@@ -56,17 +56,41 @@ export default async function ProductDetailPage({ params }: Props) {
             <p className="text-muted-foreground mt-1">
               {[product.brand, product.model].filter(Boolean).join(" • ")}
             </p>
+            {(product.serialNumber || product.imei) && (
+              <p className="mt-1 break-all font-mono text-base">
+                {product.serialNumber && (
+                  <span className="select-all">
+                    <span className="text-muted-foreground">S/N </span>
+                    {product.serialNumber}
+                  </span>
+                )}
+                {product.serialNumber && product.imei && <span className="text-muted-foreground"> · </span>}
+                {product.imei && (
+                  <span className="select-all">
+                    <span className="text-muted-foreground">IMEI </span>
+                    {product.imei}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {product.status !== "SOLD" && (
-            <MarkAsSoldButton
-              productId={product.id}
-              productName={product.name}
-              defaultPrice={product.sellingPrice}
-              unitsInStock={product.type === "ACCESSORY" ? product.quantity : undefined}
-            />
-          )}
+          <MarkAsSoldButton
+            product={{
+              id: product.id,
+              name: product.name,
+              brand: product.brand,
+              type: product.type,
+              status: product.status,
+              condition: product.condition,
+              serialNumber: product.serialNumber,
+              imei: product.imei,
+              quantity: product.quantity,
+              sellingPrice: product.sellingPrice,
+              purchasePrice: product.purchasePrice,
+            }}
+          />
           <Link href={`/inventory/${id}/edit`} className={buttonVariants({ variant: "outline" })}>
             <Edit className="h-4 w-4" />
             Edit
@@ -122,18 +146,6 @@ export default async function ProductDetailPage({ params }: Props) {
                       <div>
                         <dt className="text-muted-foreground">Battery Health</dt>
                         <dd className="font-medium mt-0.5">{product.batteryHealth}%</dd>
-                      </div>
-                    )}
-                    {product.serialNumber && (
-                      <div>
-                        <dt className="text-muted-foreground">Serial Number</dt>
-                        <dd className="font-mono font-medium mt-0.5">{product.serialNumber}</dd>
-                      </div>
-                    )}
-                    {product.imei && (
-                      <div>
-                        <dt className="text-muted-foreground">IMEI</dt>
-                        <dd className="font-mono font-medium mt-0.5">{product.imei}</dd>
                       </div>
                     )}
                   </>
@@ -247,7 +259,7 @@ export default async function ProductDetailPage({ params }: Props) {
               </div>
               {profit !== null && (
                 <div className="flex justify-between text-sm pt-2 border-t">
-                  <span className="text-muted-foreground">Potential Profit</span>
+                  <span className="text-muted-foreground">{product.status === "SOLD" ? "Profit" : "Potential profit"}</span>
                   <span className={`font-semibold tabular-nums ${profit >= 0 ? "text-success-ink" : "text-destructive"}`}>
                     {formatCurrency(profit)}
                   </span>

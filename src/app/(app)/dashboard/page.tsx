@@ -30,6 +30,7 @@ async function getDashboardData() {
     recentTransactions,
     dashboardPeriods,
     todaysSales,
+    watchedAccessories,
   ] = await Promise.all([
     // Total device inventory (units), excludes accessories
     prisma.product.count({
@@ -101,7 +102,16 @@ async function getDashboardData() {
       },
       orderBy: { date: "desc" },
     }),
+    // Accessories with a low-stock alert set; the product page defines it as "Below N", so quantity < N.
+    prisma.product.findMany({
+      where: { type: "ACCESSORY", lowStockThreshold: { gt: 0 } },
+      select: { id: true, name: true, quantity: true, lowStockThreshold: true },
+    }),
   ]);
+
+  const lowStock = watchedAccessories
+    .filter((p) => p.lowStockThreshold !== null && p.quantity < p.lowStockThreshold)
+    .sort((a, b) => a.quantity - b.quantity || a.name.localeCompare(b.name));
 
   const { monthlyChart, dailyBreakdown } = buildDashboardPeriods(dashboardPeriods, now);
 
@@ -115,6 +125,7 @@ async function getDashboardData() {
     recentTransactions,
     monthlyChart,
     dailyBreakdown,
+    lowStock,
     todaysSales: todaysSales.map((tx) => ({
       ...tx,
       unitPrice: Number(tx.unitPrice),
@@ -131,6 +142,12 @@ export default async function DashboardPage() {
   const salesGrowth = data.lastMonthSalesTotal > 0
     ? ((data.monthlySalesTotal - data.lastMonthSalesTotal) / data.lastMonthSalesTotal * 100).toFixed(0)
     : null;
+
+  const todayTotal = data.todaysSales.reduce((sum, tx) => sum + tx.totalPrice, 0);
+  // Null when no sale today has a recorded cost, so an unknown profit is never shown as $0.
+  const profitKnown = data.todaysSales.filter((tx) => tx.profit !== null);
+  const todayProfit = profitKnown.length > 0 ? profitKnown.reduce((sum, tx) => sum + (tx.profit ?? 0), 0) : null;
+  const hasChart = data.monthlyChart.some((m) => m.sales > 0);
 
   const todayLabel = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -152,130 +169,193 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground sm:pt-1 sm:whitespace-nowrap">{todayLabel}</p>
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Link href="/inventory" className={cardLinkClass}>
-          <Card className="h-full transition-shadow hover:shadow-md cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Inventory
-              </CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold tabular-nums">{data.deviceInventory}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                device units available
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/inventory" className={cardLinkClass}>
-          <Card className="h-full transition-shadow hover:shadow-md cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Value
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold tabular-nums">{formatCurrency(data.deviceValue)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                total value of device units
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <MetricDialogCard
-          title="Monthly Sales"
-          value={formatCurrency(data.monthlySalesTotal)}
-          icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />}
-          description={
-            <>
-              {data.monthlySalesCount} transaction{data.monthlySalesCount !== 1 ? "s" : ""} this month
-              {salesGrowth && (
-                <span className={Number(salesGrowth) >= 0 ? " text-success-ink" : " text-destructive"}>
-                  {" "}({Number(salesGrowth) >= 0 ? "+" : ""}{salesGrowth}%)
-                </span>
-              )}
-            </>
-          }
-          dialogTitle="Sales This Month"
-          metric="sales"
-          breakdown={data.dailyBreakdown}
-        />
-
-        <MetricDialogCard
-          title="Monthly Profit"
-          value={formatCurrency(data.monthlyProfit)}
-          valueClassName={data.monthlyProfit >= 0 ? "text-success" : "text-destructive"}
-          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-          description="net profit this month"
-          dialogTitle="Profit This Month"
-          metric="profit"
-          breakdown={data.dailyBreakdown}
-        />
-      </div>
-
-      {/* Charts */}
-      {data.monthlyChart.some((m) => m.sales > 0) && (
-        <DashboardCharts data={data.monthlyChart} />
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Today's Sales */}
-        <Card>
+      {/* Today first: what has come in, and what needs attention before the next customer */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Today&apos;s Sales</CardTitle>
+            <CardTitle className="text-base">Today&apos;s sales</CardTitle>
             {data.todaysSales.length > 0 && (
-              <Badge variant="success">{data.todaysSales.length}</Badge>
+              <Badge variant="success">
+                {data.todaysSales.length}
+                <span className="sr-only"> {data.todaysSales.length === 1 ? "sale" : "sales"}</span>
+              </Badge>
             )}
           </CardHeader>
           <CardContent>
             {data.todaysSales.length === 0 ? (
               <p className="text-sm text-muted-foreground">No sales yet today</p>
             ) : (
-              <div className="space-y-3">
-                {data.todaysSales.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between gap-4 py-2 border-b last:border-0">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{tx.product.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {tx.contact?.name ? `to ${tx.contact.name} • ` : ""}
-                        {formatDate(tx.date)}
-                      </p>
+              <>
+                <p className="mb-2 text-sm">
+                  <span className="font-semibold tabular-nums">{formatCurrency(todayTotal)}</span>{" "}
+                  <span className="text-muted-foreground">sold</span>
+                  {todayProfit !== null && (
+                    <>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className={todayProfit >= 0 ? "font-semibold text-success-ink tabular-nums" : "font-semibold text-destructive tabular-nums"}>
+                        {todayProfit >= 0 ? "Profit" : "Loss"} {formatCurrency(Math.abs(todayProfit))}
+                      </span>
+                    </>
+                  )}
+                </p>
+                <div>
+                  {data.todaysSales.map((tx) => (
+                    <div key={tx.id} className="flex items-center justify-between gap-4 py-2 border-b last:border-0">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{tx.product.name}</p>
+                        {tx.contact?.name && (
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">to {tx.contact.name}</p>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium tabular-nums shrink-0">
+                        {formatCurrency(tx.totalPrice)}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium tabular-nums shrink-0">
-                      {formatCurrency(tx.totalPrice)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
         <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Needs restocking</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.lowStock.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No accessory is below its low-stock alert. Set an alert on an accessory to watch it here.
+              </p>
+            ) : (
+              <>
+                <ul>
+                  {data.lowStock.slice(0, 5).map((item) => (
+                    <li key={item.id} className="border-b last:border-0">
+                      <Link
+                        href={`/inventory/${item.id}`}
+                        className="flex items-center justify-between gap-3 rounded-sm py-2 hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{item.name}</span>
+                          <span className="block text-xs text-muted-foreground">Alert below {item.lowStockThreshold}</span>
+                        </span>
+                        <Badge variant={item.quantity === 0 ? "destructive" : "warning"} className="shrink-0">
+                          {item.quantity === 0 ? "Out of stock" : `${item.quantity} left`}
+                        </Badge>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                {data.lowStock.length > 5 && (
+                  <Link href="/inventory?type=ACCESSORY" className="mt-3 inline-block text-sm text-primary hover:underline">
+                    View all {data.lowStock.length} in accessories
+                  </Link>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* This month: the money first, then what is on the shelf */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricDialogCard
+          title="Sales this month"
+          value={formatCurrency(data.monthlySalesTotal)}
+          icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />}
+          description={
+            <>
+              {data.monthlySalesCount} {data.monthlySalesCount === 1 ? "sale" : "sales"}
+              {salesGrowth && (
+                <>
+                  {" · "}
+                  <span className={Number(salesGrowth) >= 0 ? "text-success-ink" : "text-destructive"}>
+                    {Number(salesGrowth) >= 0 ? "+" : ""}{salesGrowth}%
+                  </span>{" "}
+                  vs all of last month
+                </>
+              )}
+            </>
+          }
+          dialogTitle="Sales this month"
+          metric="sales"
+          breakdown={data.dailyBreakdown}
+        />
+
+        <MetricDialogCard
+          title="Profit this month"
+          value={formatCurrency(data.monthlyProfit)}
+          valueClassName={data.monthlyProfit >= 0 ? "text-success" : "text-destructive"}
+          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+          description="sale price minus purchase cost"
+          dialogTitle="Profit this month"
+          dialogNote="Sale price minus purchase cost. Sales of units with no recorded cost aren't included."
+          metric="profit"
+          breakdown={data.dailyBreakdown}
+        />
+
+        <Link href="/inventory" className={cardLinkClass}>
+          <Card className="h-full transition-shadow hover:shadow-md cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Devices in stock
+              </CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold tabular-nums">{data.deviceInventory}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                unsold device units
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/inventory" className={cardLinkClass}>
+          <Card className="h-full transition-shadow hover:shadow-md cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Stock value
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold tabular-nums">{formatCurrency(data.deviceValue)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                listed price of unsold devices
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Trend, with the latest transactions beside it */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {hasChart && (
+          <div className="lg:col-span-2">
+            <DashboardCharts data={data.monthlyChart} />
+          </div>
+        )}
+
+        <Card className={hasChart ? undefined : "lg:col-span-3"}>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Recent Activity</CardTitle>
+            <CardTitle className="text-base">Recent transactions</CardTitle>
             <Link href="/transactions" className="text-sm text-primary hover:underline">
-              View all
+              View all transactions
             </Link>
           </CardHeader>
           <CardContent>
             {data.recentTransactions.length === 0 ? (
               <p className="text-sm text-muted-foreground">No transactions yet</p>
             ) : (
-              <div className="space-y-3">
+              <div>
                 {data.recentTransactions.map((tx) => (
                   <div key={tx.id} className="flex items-center justify-between gap-4 py-2 border-b last:border-0">
                     <div className="min-w-0">
                       <div className="text-sm flex items-center">
                         <Badge variant={tx.type === "BUY" ? "secondary" : "success"} className="mr-2 text-xs shrink-0">
-                          {tx.type === "BUY" ? "Buy" : "Sell"}
+                          {tx.type === "BUY" ? "Purchase" : "Sale"}
                         </Badge>
                         <span className="font-medium truncate">{tx.product.name}</span>
                       </div>

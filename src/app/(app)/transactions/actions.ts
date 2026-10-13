@@ -3,7 +3,8 @@
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { TransactionType, ProductStatus } from "@/generated/prisma/client";
+import { PAGE_SIZE } from "@/lib/page-size";
+import { TransactionType } from "@/generated/prisma/client";
 
 export type TransactionWithRelations = Awaited<ReturnType<typeof getTransactions>>["transactions"][number];
 
@@ -18,7 +19,7 @@ export async function getTransactions(params: GetTransactionsParams = {}) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
 
-  const { search, type, page = 1, perPage = 20 } = params;
+  const { search, type, page = 1, perPage = PAGE_SIZE } = params;
 
   const where: Record<string, unknown> = {};
 
@@ -105,81 +106,6 @@ export async function createBuyTransaction(formData: FormData): Promise<{ error?
     await prisma.product.update({
       where: { id: productId },
       data: updateData,
-    });
-  }
-
-  revalidatePath("/transactions");
-  revalidatePath("/inventory");
-  revalidatePath(`/inventory/${productId}`);
-  return { success: true };
-}
-
-export async function createSellTransaction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
-  const session = await auth();
-  if (!session) throw new Error("Unauthorized");
-
-  const productId = formData.get("productId") as string;
-  const contactId = (formData.get("contactId") as string) || null;
-  const quantity = parseInt(formData.get("quantity") as string) || 1;
-  const unitPrice = parseFloat(formData.get("unitPrice") as string);
-  const notes = (formData.get("notes") as string) || null;
-  const dateStr = formData.get("date") as string;
-
-  if (!productId || isNaN(unitPrice)) {
-    return { error: "Product and unit price are required" };
-  }
-
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product) {
-    return { error: "Product not found" };
-  }
-
-  // For accessories, check quantity
-  if (product.type === "ACCESSORY" && quantity > product.quantity) {
-    return { error: `Insufficient stock. Only ${product.quantity} available.` };
-  }
-
-  const totalPrice = unitPrice * quantity;
-  const date = dateStr ? new Date(dateStr) : new Date();
-
-  // Calculate profit
-  const purchasePrice = product.purchasePrice ? Number(product.purchasePrice) : 0;
-  const profit = (unitPrice - purchasePrice) * quantity;
-
-  // Create the transaction
-  await prisma.transaction.create({
-    data: {
-      type: TransactionType.SELL,
-      date,
-      productId,
-      contactId,
-      quantity,
-      unitPrice,
-      totalPrice,
-      profit,
-      notes,
-    },
-  });
-
-  // Update product status and quantity
-  if (product.type === "DEVICE") {
-    await prisma.product.update({
-      where: { id: productId },
-      data: {
-        status: ProductStatus.SOLD,
-        sellingPrice: unitPrice,
-      },
-    });
-  } else {
-    // Accessory: reduce quantity
-    const newQuantity = product.quantity - quantity;
-    await prisma.product.update({
-      where: { id: productId },
-      data: {
-        quantity: newQuantity,
-        sellingPrice: unitPrice,
-        status: newQuantity === 0 ? ProductStatus.SOLD : ProductStatus.AVAILABLE,
-      },
     });
   }
 

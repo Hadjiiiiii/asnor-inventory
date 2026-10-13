@@ -14,8 +14,6 @@ import {
   Search,
   Package,
   Cable,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
   Eye,
   CircleDollarSign,
@@ -27,7 +25,9 @@ import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 import type { ProductWithCategory } from "./actions";
 import { conditionLabels, statusLabels } from "@/lib/product-labels";
-import { MarkAsSoldDialog } from "./mark-as-sold-dialog";
+import { SaleDialog } from "./sale-dialog";
+import { Pagination } from "@/components/pagination";
+import { PAGE_SIZE } from "@/lib/page-size";
 
 interface InventoryListProps {
   products: ProductWithCategory[];
@@ -77,8 +77,29 @@ function StatusBadge({ product }: { product: ProductWithCategory }) {
 }
 
 function productMeta(product: ProductWithCategory) {
-  return [product.brand, product.model].filter(Boolean).join(" • ") +
-    (product.serialNumber ? ` • S/N: ${product.serialNumber}` : "");
+  return [product.brand, product.model].filter(Boolean).join(" • ");
+}
+
+/** The identifiers staff look a unit up by: set in ink and mono so they read as the unit's name tag, not meta. */
+function Identifiers({ product }: { product: ProductWithCategory }) {
+  if (!product.serialNumber && !product.imei) return null;
+  return (
+    <p className="mt-0.5 break-all font-mono text-sm leading-snug">
+      {product.serialNumber && (
+        <>
+          <span className="text-muted-foreground">S/N </span>
+          {product.serialNumber}
+        </>
+      )}
+      {product.serialNumber && product.imei && <span className="text-muted-foreground"> · </span>}
+      {product.imei && (
+        <>
+          <span className="text-muted-foreground">IMEI </span>
+          {product.imei}
+        </>
+      )}
+    </p>
+  );
 }
 
 const FOCUS_RING =
@@ -107,6 +128,13 @@ export function InventoryList({ products, categories, total, pages, currentPage 
     }
     params.delete("page"); // Reset to page 1 on filter change
     router.push(`/inventory?${params.toString()}`);
+  }
+
+  // Clearing keeps the Units/Accessories view the person is in.
+  function clearFilters() {
+    const type = searchParams.get("type");
+    setSearchValue("");
+    router.push(type ? `/inventory?type=${encodeURIComponent(type)}` : "/inventory");
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -202,8 +230,8 @@ export function InventoryList({ products, categories, total, pages, currentPage 
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
-              aria-label="Search products"
+              placeholder="Search name, serial number or IMEI..."
+              aria-label="Search products by name, serial number or IMEI"
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               className="pl-9"
@@ -307,7 +335,11 @@ export function InventoryList({ products, categories, total, pages, currentPage 
               <p className="text-sm text-muted-foreground mt-1">
                 {hasFilters ? "Try adjusting your filters" : "Add your first product to get started"}
               </p>
-              {!hasFilters && (
+              {hasFilters ? (
+                <Button variant="outline" className="mt-4" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              ) : (
                 <Link href="/inventory/new" className={cn(buttonVariants(), "mt-4")}>
                   <Plus className="h-4 w-4" />
                   Add Product
@@ -341,7 +373,10 @@ export function InventoryList({ products, categories, total, pages, currentPage 
                             >
                               {product.name}
                             </Link>
-                            <p className="text-xs text-muted-foreground">{productMeta(product)}</p>
+                            {productMeta(product) && (
+                              <p className="text-xs text-muted-foreground">{productMeta(product)}</p>
+                            )}
+                            <Identifiers product={product} />
                           </div>
                         </TableCell>
                         <TableCell>
@@ -378,7 +413,10 @@ export function InventoryList({ products, categories, total, pages, currentPage 
                         >
                           {product.name}
                         </Link>
-                        <p className="text-xs text-muted-foreground break-words">{productMeta(product)}</p>
+                        {productMeta(product) && (
+                          <p className="text-xs text-muted-foreground break-words">{productMeta(product)}</p>
+                        )}
+                        <Identifiers product={product} />
                         <p className="text-xs text-muted-foreground">
                           {product.category.name}
                           {!isUnitsView && ` • Qty ${product.quantity}`}
@@ -397,56 +435,24 @@ export function InventoryList({ products, categories, total, pages, currentPage 
                 ))}
               </ul>
 
-              {/* Pagination */}
-              {pages > 1 && (
-                <div className="flex items-center justify-between border-t px-4 py-3">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * 20 + 1}–{Math.min(currentPage * 20, total)} of {total}
-                  </p>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage <= 1}
-                      aria-label="Previous page"
-                      onClick={() => {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.set("page", String(currentPage - 1));
-                        router.push(`/inventory?${params.toString()}`);
-                      }}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage >= pages}
-                      aria-label="Next page"
-                      onClick={() => {
-                        const params = new URLSearchParams(searchParams.toString());
-                        params.set("page", String(currentPage + 1));
-                        router.push(`/inventory?${params.toString()}`);
-                      }}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                basePath="/inventory"
+                currentPage={currentPage}
+                pages={pages}
+                total={total}
+                pageSize={PAGE_SIZE}
+                className="border-t px-4 py-3"
+              />
             </>
           )}
         </CardContent>
       </Card>
 
       {soldTarget && (
-        <MarkAsSoldDialog
+        <SaleDialog
           open
           onOpenChange={(open) => !open && setSoldTarget(null)}
-          productId={soldTarget.id}
-          productName={soldTarget.name}
-          defaultPrice={soldTarget.sellingPrice}
-          unitsInStock={soldTarget.type === "ACCESSORY" ? soldTarget.quantity : undefined}
-          onSold={() => setSoldTarget(null)}
+          product={soldTarget}
         />
       )}
 

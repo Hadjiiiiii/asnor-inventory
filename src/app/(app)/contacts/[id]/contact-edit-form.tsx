@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { updateContact } from "../actions";
+import { CONTACT_LIMITS, readContactForm, validateContactFields } from "@/lib/contact-validation";
 import { Loader2, Save } from "lucide-react";
 
 interface ContactData {
@@ -24,18 +25,43 @@ interface ContactData {
 export function ContactEditForm({ contact }: { contact: ContactData }) {
   const { addToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<{ message: string; field?: string } | null>(null);
 
-  async function handleSubmit(formData: FormData) {
+  function fail(form: HTMLFormElement, message: string, field?: string) {
+    setError({ message, field });
+    if (field) (form.elements.namedItem(field) as HTMLElement | null)?.focus();
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (isLoading) return;
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const problem = validateContactFields(readContactForm(formData));
+    if (problem) {
+      fail(form, problem.error, problem.field);
+      return;
+    }
+
     setIsLoading(true);
-    const result = await updateContact(contact.id, formData);
-    setIsLoading(false);
-
-    if (result.error) {
-      addToast(result.error, "error");
-    } else {
+    setError(null);
+    try {
+      const result = await updateContact(contact.id, formData);
+      if (result.error) {
+        fail(form, result.error, result.field);
+        return;
+      }
       addToast("Contact updated", "success");
+    } catch {
+      setError({ message: "We couldn't reach the server. Your changes weren't saved; check your connection and try again." });
+    } finally {
+      setIsLoading(false);
     }
   }
+
+  const invalid = (field: string) => (error?.field === field ? true : undefined);
+  const describedBy = (field: string) => (error?.field === field ? "contact-edit-error" : undefined);
 
   return (
     <Card>
@@ -43,11 +69,11 @@ export function ContactEditForm({ contact }: { contact: ContactData }) {
         <CardTitle className="text-base">Edit Contact</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Name *</Label>
-              <Input id="name" name="name" required defaultValue={contact.name} />
+              <Input id="name" name="name" required maxLength={CONTACT_LIMITS.name} defaultValue={contact.name} aria-invalid={invalid("name")} aria-describedby={describedBy("name")} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Type</Label>
@@ -59,21 +85,26 @@ export function ContactEditForm({ contact }: { contact: ContactData }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" name="phone" defaultValue={contact.phone || ""} />
+              <Input id="phone" name="phone" type="tel" maxLength={CONTACT_LIMITS.phone} defaultValue={contact.phone || ""} aria-invalid={invalid("phone")} aria-describedby={describedBy("phone")} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" defaultValue={contact.email || ""} />
+              <Input id="email" name="email" type="email" maxLength={CONTACT_LIMITS.email} defaultValue={contact.email || ""} aria-invalid={invalid("email")} aria-describedby={describedBy("email")} />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="address">Address</Label>
-              <Input id="address" name="address" defaultValue={contact.address || ""} />
+              <Input id="address" name="address" maxLength={CONTACT_LIMITS.address} defaultValue={contact.address || ""} aria-invalid={invalid("address")} aria-describedby={describedBy("address")} />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" name="notes" defaultValue={contact.notes || ""} rows={2} />
+              <Textarea id="notes" name="notes" maxLength={CONTACT_LIMITS.notes} defaultValue={contact.notes || ""} rows={2} aria-invalid={invalid("notes")} aria-describedby={describedBy("notes")} />
             </div>
           </div>
+          {error && (
+            <p id="contact-edit-error" role="alert" className="text-sm text-destructive">
+              {error.message}
+            </p>
+          )}
           <div className="flex justify-end">
             <Button type="submit" disabled={isLoading}>
               {isLoading ? (

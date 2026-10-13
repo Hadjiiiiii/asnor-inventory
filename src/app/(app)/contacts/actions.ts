@@ -3,7 +3,13 @@
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { PAGE_SIZE } from "@/lib/page-size";
 import { ContactType } from "@/generated/prisma/client";
+import { readContactForm, validateContactFields } from "@/lib/contact-validation";
+
+const SESSION_EXPIRED = "Your session has expired. Sign in again to continue.";
+
+type ContactResult = { error?: string; field?: string; success?: boolean; id?: string };
 
 export type ContactWithTransactionCount = Awaited<ReturnType<typeof getContacts>>["contacts"][number];
 
@@ -18,7 +24,7 @@ export async function getContacts(params: GetContactsParams = {}) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
 
-  const { search, type, page = 1, perPage = 20 } = params;
+  const { search, type, page = 1, perPage = PAGE_SIZE } = params;
 
   const where: Record<string, unknown> = {};
 
@@ -87,73 +93,71 @@ export async function getContact(id: string) {
   };
 }
 
-function getContactFormFields(formData: FormData) {
-  return {
-    name: formData.get("name") as string,
-    type: formData.get("type") as ContactType,
-    phone: (formData.get("phone") as string) || null,
-    email: (formData.get("email") as string) || null,
-    address: (formData.get("address") as string) || null,
-    notes: (formData.get("notes") as string) || null,
-  };
+export async function createContact(formData: FormData): Promise<ContactResult> {
+  const session = await auth();
+  if (!session) return { error: SESSION_EXPIRED };
+
+  const fields = readContactForm(formData);
+  const problem = validateContactFields(fields);
+  if (problem) return problem;
+
+  try {
+    const contact = await prisma.contact.create({
+      data: { ...fields, type: fields.type as ContactType },
+    });
+    revalidatePath("/contacts");
+    return { success: true, id: contact.id };
+  } catch (e) {
+    console.error("Create contact failed", e);
+    return { error: "Couldn't save the contact. Nothing was changed; please try again." };
+  }
 }
 
-export async function createContact(formData: FormData): Promise<{ error?: string; success?: boolean; id?: string }> {
+export async function updateContact(id: string, formData: FormData): Promise<ContactResult> {
   const session = await auth();
-  if (!session) throw new Error("Unauthorized");
+  if (!session) return { error: SESSION_EXPIRED };
 
-  const { name, type, phone, email, address, notes } = getContactFormFields(formData);
+  const fields = readContactForm(formData);
+  const problem = validateContactFields(fields);
+  if (problem) return problem;
 
-  if (!name) {
-    return { error: "Name is required" };
+  try {
+    await prisma.contact.update({
+      where: { id },
+      data: { ...fields, type: fields.type as ContactType },
+    });
+  } catch (e) {
+    if ((e as { code?: string } | null)?.code === "P2025") {
+      return { error: "This contact no longer exists. It may have been deleted by someone else." };
+    }
+    console.error("Update contact failed", e);
+    return { error: "Couldn't save the changes. Nothing was changed; please try again." };
   }
-
-  const contact = await prisma.contact.create({
-    data: {
-      name,
-      type: type || ContactType.CUSTOMER,
-      phone,
-      email,
-      address,
-      notes,
-    },
-  });
-
-  revalidatePath("/contacts");
-  return { success: true, id: contact.id };
-}
-
-export async function updateContact(id: string, formData: FormData): Promise<{ error?: string; success?: boolean }> {
-  const session = await auth();
-  if (!session) throw new Error("Unauthorized");
-
-  const { name, type, phone, email, address, notes } = getContactFormFields(formData);
-
-  if (!name) {
-    return { error: "Name is required" };
-  }
-
-  await prisma.contact.update({
-    where: { id },
-    data: { name, type, phone, email, address, notes },
-  });
 
   revalidatePath("/contacts");
   revalidatePath(`/contacts/${id}`);
   return { success: true };
 }
 
-export async function deleteContact(id: string): Promise<{ error?: string; success?: boolean }> {
+export async function deleteContact(id: string): Promise<ContactResult> {
   const session = await auth();
-  if (!session) throw new Error("Unauthorized");
+  if (!session) return { error: SESSION_EXPIRED };
 
-  // Check for linked transactions
-  const txCount = await prisma.transaction.count({ where: { contactId: id } });
-  if (txCount > 0) {
-    return { error: "Cannot delete a contact with transaction history" };
+  try {
+    // The foreign key is the real guard: a sale recorded between a pre-check and the delete still can't orphan it.
+    await prisma.contact.delete({ where: { id } });
+  } catch (e) {
+    const code = (e as { code?: string } | null)?.code;
+    if (code === "P2003") {
+      return { error: "This contact has transaction history, so it can't be deleted." };
+    }
+    if (code === "P2025") {
+      return { error: "This contact was already deleted." };
+    }
+    console.error("Delete contact failed", e);
+    return { error: "Couldn't delete the contact. Nothing was changed; please try again." };
   }
 
-  await prisma.contact.delete({ where: { id } });
   revalidatePath("/contacts");
   return { success: true };
 }

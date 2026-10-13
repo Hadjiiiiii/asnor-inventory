@@ -1,42 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CircleDollarSign } from "lucide-react";
-import { MarkAsSoldDialog } from "../mark-as-sold-dialog";
+import { SaleDialog, type SaleProduct } from "../sale-dialog";
 
 interface MarkAsSoldButtonProps {
-  productId: string;
-  productName: string;
-  defaultPrice: number | null;
-  /** Set for quantity-based accessories: one unit is sold per confirmation. */
-  unitsInStock?: number;
+  product: SaleProduct;
 }
 
-export function MarkAsSoldButton({ productId, productName, defaultPrice, unitsInStock }: MarkAsSoldButtonProps) {
-  const router = useRouter();
+export function MarkAsSoldButton({ product }: MarkAsSoldButtonProps) {
   const [open, setOpen] = useState(false);
 
+  // The page re-renders as soon as a sale lands, flipping the status to Sold. The trigger hides then,
+  // but the dialog stays mounted so the result (and Undo) remain on screen until it is dismissed.
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <CircleDollarSign className="h-4 w-4" />
-        Mark as Sold
-      </Button>
+      {product.status !== "SOLD" && (
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          <CircleDollarSign className="h-4 w-4" />
+          Mark as Sold
+        </Button>
+      )}
 
-      <MarkAsSoldDialog
-        open={open}
-        onOpenChange={setOpen}
-        productId={productId}
-        productName={productName}
-        defaultPrice={defaultPrice}
-        unitsInStock={unitsInStock}
-        onSold={() => {
-          setOpen(false);
-          router.refresh();
-        }}
-      />
+      <SaleDialog open={open} onOpenChange={setOpen} product={product} />
     </>
   );
 }

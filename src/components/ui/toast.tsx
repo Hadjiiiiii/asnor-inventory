@@ -88,7 +88,8 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
   return (
     <div
-      role={toast.type === "error" ? "alert" : "status"}
+      // The always-mounted polite region announces additions; only an error interrupts with its own alert.
+      role={toast.type === "error" ? "alert" : undefined}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}

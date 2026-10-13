@@ -14,9 +14,15 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        brand: true,
         type: true,
+        status: true,
+        condition: true,
+        serialNumber: true,
+        imei: true,
         quantity: true,
         sellingPrice: true,
+        purchasePrice: true,
       },
       orderBy: { name: "asc" },
     }),
@@ -26,10 +32,11 @@ export async function GET() {
     }),
   ]);
 
-  // Convert Decimal to string for JSON serialization
+  // Decimals become numbers so the sale dialog can preview profit without parsing.
   const serializedProducts = products.map((p) => ({
     ...p,
-    sellingPrice: p.sellingPrice?.toString() || null,
+    sellingPrice: p.sellingPrice ? Number(p.sellingPrice) : null,
+    purchasePrice: p.purchasePrice ? Number(p.purchasePrice) : null,
   }));
 
   return NextResponse.json({ products: serializedProducts, contacts });

@@ -13,7 +13,7 @@ interface Props {
 
 export default async function ContactsPage({ searchParams }: Props) {
   const params = await searchParams;
-  const page = parseInt(params.page || "1");
+  const page = Math.max(1, parseInt(params.page || "1") || 1);
 
   const { contacts, total, pages, currentPage } = await getContacts({
     search: params.search,

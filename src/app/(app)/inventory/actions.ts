@@ -3,9 +3,11 @@
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { PAGE_SIZE } from "@/lib/page-size";
 import { Condition, ProductStatus, ProductType } from "@/generated/prisma/client";
 import { PRODUCT_LIMITS } from "@/lib/product-limits";
 import { formatMoney, validateProductFields } from "@/lib/product-validation";
+import { UNDO_WINDOW_MS, parseSaleDate, saleProfit } from "@/lib/sale";
 
 type ActionResult = { error?: string; field?: string; success?: boolean; id?: string };
 
@@ -109,7 +111,7 @@ export async function getProducts(params: GetProductsParams = {}) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
 
-  const { search: rawSearch, category, condition, status, type, page: rawPage = 1, perPage = 20, sortBy } = params;
+  const { search: rawSearch, category, condition, status, type, page: rawPage = 1, perPage = PAGE_SIZE, sortBy } = params;
   // These come straight from the URL: a bad value must degrade to a default, not crash the page.
   const search = rawSearch?.trim().slice(0, PRODUCT_LIMITS.search);
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
@@ -401,21 +403,57 @@ export async function createCategory(name: string): Promise<{ error?: string; su
  * price, which may differ from the listed selling price (e.g. after haggling).
  * Creates a SELL transaction and updates the product's status/quantity.
  */
+export interface SaleDetails {
+  contactId?: string | null;
+  /** YYYY-MM-DD in the seller's timezone; defaults to now. */
+  date?: string | null;
+  notes?: string | null;
+}
+
+/** What the sale dialog needs to show the result and, if asked, reverse the sale exactly. */
+export interface SaleReceipt {
+  transactionId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  /** Null when the unit's cost was never recorded. */
+  profit: number | null;
+  previousStatus: "AVAILABLE" | "RESERVED";
+  previousSellingPrice: number | null;
+}
+
 export async function markProductAsSold(
   id: string,
   soldPrice: number,
-  quantity: number = 1
-): Promise<{ error?: string; success?: boolean }> {
+  quantity: number = 1,
+  details: SaleDetails = {}
+): Promise<{ error?: string; success?: boolean; receipt?: SaleReceipt }> {
   const session = await auth();
   if (!session) return { error: SESSION_EXPIRED };
 
   if (!Number.isFinite(soldPrice) || soldPrice < 0 || soldPrice > PRODUCT_LIMITS.maxPrice) {
     return { error: `Enter a sale price between 0 and ${formatMoney(PRODUCT_LIMITS.maxPrice)}` };
   }
-  if (!Number.isInteger(quantity) || quantity < 1) {
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > PRODUCT_LIMITS.maxQuantity) {
     return { error: "Quantity must be a whole number of at least 1" };
   }
 
+  const contactId = details.contactId || null;
+  const notes = details.notes?.trim() || null;
+  if (notes && notes.length > PRODUCT_LIMITS.notes) {
+    return { error: `Notes must be ${PRODUCT_LIMITS.notes} characters or fewer` };
+  }
+  let date: Date | undefined;
+  if (details.date) {
+    const parsed = parseSaleDate(details.date);
+    if (!parsed) return { error: "Enter a valid sale date" };
+    // A day of slack covers a seller whose timezone is ahead of the server's.
+    if (parsed.getTime() > Date.now() + 24 * 60 * 60 * 1000) return { error: "The sale date can't be in the future" };
+    date = parsed;
+  }
+
+  let receipt: SaleReceipt | undefined;
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
   try {
@@ -424,6 +462,10 @@ export async function markProductAsSold(
       const product = await tx.product.findUnique({ where: { id } });
       if (!product) throw new SaleError("Product not found");
       if (product.status === ProductStatus.SOLD) throw new SaleError("This product is already marked as sold");
+      if (contactId) {
+        const contact = await tx.contact.findUnique({ where: { id: contactId }, select: { type: true } });
+        if (!contact || contact.type === "SUPPLIER") throw new SaleError("Choose a customer from the list");
+      }
       if (product.type === ProductType.ACCESSORY && quantity > product.quantity) {
         throw new SaleError(`Insufficient stock. Only ${product.quantity} available.`);
       }
@@ -451,18 +493,32 @@ export async function markProductAsSold(
         });
       }
 
-      const purchasePrice = product.purchasePrice ? Number(product.purchasePrice) : 0;
-      await tx.transaction.create({
+      const purchasePrice = product.purchasePrice ? Number(product.purchasePrice) : null;
+      const profit = saleProfit(soldPrice, purchasePrice, quantity);
+      const created = await tx.transaction.create({
         data: {
           type: "SELL",
           productId: id,
+          contactId,
+          ...(date && { date }),
           quantity,
           unitPrice: soldPrice,
           totalPrice: round2(soldPrice * quantity),
-          profit: round2((soldPrice - purchasePrice) * quantity),
-          notes: "Marked as sold from inventory",
+          profit,
+          notes,
         },
       });
+
+      receipt = {
+        transactionId: created.id,
+        productName: product.name,
+        quantity,
+        unitPrice: soldPrice,
+        totalPrice: round2(soldPrice * quantity),
+        profit,
+        previousStatus: product.status === ProductStatus.RESERVED ? "RESERVED" : "AVAILABLE",
+        previousSellingPrice: product.sellingPrice ? Number(product.sellingPrice) : null,
+      };
     });
   } catch (e) {
     if (e instanceof SaleError) return { error: e.message };
@@ -472,6 +528,76 @@ export async function markProductAsSold(
 
   revalidatePath("/inventory");
   revalidatePath(`/inventory/${id}`);
+  revalidatePath("/transactions");
+  revalidatePath("/dashboard");
+  return { success: true, receipt };
+}
+
+/**
+ * Reverses a sale made moments ago: puts the unit (or accessory stock) back exactly as it was and removes
+ * the transaction. Refuses once anything else has been recorded for the product or the window has passed.
+ */
+export async function undoSale(
+  transactionId: string,
+  previous: { status: "AVAILABLE" | "RESERVED"; sellingPrice: number | null }
+): Promise<{ error?: string; success?: boolean }> {
+  const session = await auth();
+  if (!session) return { error: SESSION_EXPIRED };
+
+  const validStatus = previous.status === "AVAILABLE" || previous.status === "RESERVED";
+  const validPrice =
+    previous.sellingPrice === null ||
+    (Number.isFinite(previous.sellingPrice) && previous.sellingPrice >= 0 && previous.sellingPrice <= PRODUCT_LIMITS.maxPrice);
+  if (!transactionId || !validStatus || !validPrice) return { error: "This sale can't be undone from here." };
+
+  let productId = "";
+  try {
+    await prisma.$transaction(async (tx) => {
+      const sale = await tx.transaction.findUnique({ where: { id: transactionId }, include: { product: true } });
+      if (!sale || sale.type !== "SELL") throw new SaleError("This sale was already undone or can't be found.");
+      productId = sale.productId;
+
+      if (Date.now() - sale.createdAt.getTime() > UNDO_WINDOW_MS) {
+        throw new SaleError(`It has been more than ${UNDO_WINDOW_MS / 60000} minutes, so this sale can no longer be undone here.`);
+      }
+      const latest = await tx.transaction.findFirst({
+        where: { productId: sale.productId },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (latest?.id !== sale.id) {
+        throw new SaleError("Something else was recorded for this product since, so this sale can't be undone.");
+      }
+
+      // Deleting by id inside the transaction means two people pressing Undo cannot both restore stock.
+      const removed = await tx.transaction.deleteMany({ where: { id: sale.id } });
+      if (removed.count === 0) throw new SaleError("This sale was already undone.");
+
+      if (sale.product.type === ProductType.DEVICE) {
+        const restored = await tx.product.updateMany({
+          where: { id: sale.productId, status: ProductStatus.SOLD },
+          data: { status: previous.status, sellingPrice: previous.sellingPrice },
+        });
+        if (restored.count === 0) throw new SaleError("This product has changed since the sale, so it can't be undone.");
+      } else {
+        await tx.product.update({
+          where: { id: sale.productId },
+          data: {
+            quantity: { increment: sale.quantity },
+            status: previous.status,
+            sellingPrice: previous.sellingPrice,
+          },
+        });
+      }
+    });
+  } catch (e) {
+    if (e instanceof SaleError) return { error: e.message };
+    console.error("Undo sale failed", e);
+    return { error: "Couldn't undo the sale. Nothing was changed; please try again." };
+  }
+
+  revalidatePath("/inventory");
+  revalidatePath(`/inventory/${productId}`);
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
   return { success: true };

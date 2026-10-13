@@ -1,3 +1,4 @@
+import { auth } from "@/lib/auth";
 import { getUsers } from "./actions";
 import { UserList } from "./user-list";
 
@@ -11,9 +12,9 @@ interface Props {
 
 export default async function UsersPage({ searchParams }: Props) {
   const params = await searchParams;
-  const page = parseInt(params.page || "1");
+  const page = Math.max(1, parseInt(params.page || "1") || 1);
 
-  const { users, total, pages, currentPage } = await getUsers({ page });
+  const [{ users, total, pages, currentPage }, session] = await Promise.all([getUsers({ page }), auth()]);
 
   return (
     <div className="space-y-6">
@@ -28,6 +29,7 @@ export default async function UsersPage({ searchParams }: Props) {
         total={total}
         pages={pages}
         currentPage={currentPage}
+        currentUserId={session?.user.id ?? ""}
       />
     </div>
   );

@@ -17,6 +17,8 @@ interface MetricDialogCardProps {
   description: React.ReactNode;
   icon: React.ReactNode;
   dialogTitle: string;
+  /** Shown under the dialog title when the figure needs a definition. */
+  dialogNote?: string;
   /** Which figure to display per day in the breakdown list. */
   metric: "sales" | "profit";
   breakdown: DayBreakdown[];
@@ -44,6 +46,7 @@ export function MetricDialogCard({
   description,
   icon,
   dialogTitle,
+  dialogNote,
   metric,
   breakdown,
   valueClassName,
@@ -74,6 +77,7 @@ export function MetricDialogCard({
         <CardContent>
           <div className={`text-2xl font-bold tabular-nums ${valueClassName || ""}`}>{value}</div>
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
+          <p className="text-xs font-medium text-primary mt-2">Daily breakdown</p>
         </CardContent>
       </Card>
 
@@ -81,9 +85,10 @@ export function MetricDialogCard({
         <DialogContent onClose={() => setOpen(false)} className="max-w-md">
           <DialogHeader>
             <DialogTitle>{dialogTitle}</DialogTitle>
+            {dialogNote && <p className="text-sm text-muted-foreground">{dialogNote}</p>}
           </DialogHeader>
           {breakdown.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No data for this month yet</p>
+            <p className="text-sm text-muted-foreground">No sales recorded this month yet.</p>
           ) : (
             <div className="max-h-96 overflow-y-auto -mx-2">
               <div className="space-y-1">
