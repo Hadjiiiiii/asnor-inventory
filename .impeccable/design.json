@@ -1,0 +1,499 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-13T06:26:07.510Z",
+  "title": "Design System: ASNOR Inventory",
+  "extensions": {
+    "colorMeta": {
+      "clay-terracotta": {
+        "role": "primary",
+        "displayName": "Clay Terracotta",
+        "canonical": "#ad4f2d",
+        "oklch": "oklch(54.1% 0.132 39.8)",
+        "tonalRamp": [
+          "#1e0100",
+          "#481100",
+          "#792500",
+          "#a34623",
+          "#cb6a48",
+          "#f48f6c",
+          "#ffbba4",
+          "#ffe9e2"
+        ]
+      },
+      "clay-terracotta-hover": {
+        "role": "primary",
+        "displayName": "Clay Terracotta Hover",
+        "canonical": "#9a4527",
+        "oklch": "oklch(49.6% 0.122 39.4)",
+        "tonalRamp": [
+          "#1e0100",
+          "#481100",
+          "#782602",
+          "#9f492b",
+          "#c66d4f",
+          "#ef9272",
+          "#ffbba5",
+          "#ffe9e2"
+        ]
+      },
+      "clay-tint": {
+        "role": "primary",
+        "displayName": "Clay Tint",
+        "canonical": "#f7edea",
+        "oklch": "oklch(95.3% 0.012 37.4)",
+        "tonalRamp": [
+          "#100908",
+          "#2c2522",
+          "#4b4341",
+          "#6c6461",
+          "#908784",
+          "#b5aca9",
+          "#d5cbc8",
+          "#f6ece9"
+        ]
+      },
+      "ledger-cream": {
+        "role": "neutral",
+        "displayName": "Ledger Cream",
+        "canonical": "#FAF9F7",
+        "oklch": "oklch(98.2% 0.003 84.6)",
+        "tonalRamp": [
+          "#0c0b0a",
+          "#272625",
+          "#464543",
+          "#676664",
+          "#8a8987",
+          "#afaeac",
+          "#cecdcc",
+          "#efeeec"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#cecece",
+          "#eeeeee"
+        ]
+      },
+      "parchment-wash": {
+        "role": "neutral",
+        "displayName": "Parchment Wash",
+        "canonical": "#f5f0eb",
+        "oklch": "oklch(95.8% 0.009 67.7)",
+        "tonalRamp": [
+          "#0e0b08",
+          "#292622",
+          "#484440",
+          "#696561",
+          "#8d8884",
+          "#b2ada8",
+          "#d2cdc8",
+          "#f2ede8"
+        ]
+      },
+      "sand-accent": {
+        "role": "neutral",
+        "displayName": "Sand Accent",
+        "canonical": "#e8ddd4",
+        "oklch": "oklch(90.4% 0.017 61.9)",
+        "tonalRamp": [
+          "#100a05",
+          "#2d251e",
+          "#4c433c",
+          "#6e645c",
+          "#91877f",
+          "#b6aca3",
+          "#d6ccc3",
+          "#f7ece3"
+        ]
+      },
+      "warm-hairline": {
+        "role": "neutral",
+        "displayName": "Warm Hairline",
+        "canonical": "#e8e2db",
+        "oklch": "oklch(91.6% 0.011 71.9)",
+        "tonalRamp": [
+          "#0e0a06",
+          "#2a2620",
+          "#49443e",
+          "#6a655f",
+          "#8e8882",
+          "#b3ada6",
+          "#d3cdc6",
+          "#f3ede6"
+        ]
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "Field Border",
+        "canonical": "#8f8780",
+        "oklch": "oklch(62.8% 0.014 63.8)",
+        "tonalRamp": [
+          "#0f0a06",
+          "#2c251f",
+          "#4b443d",
+          "#6c655e",
+          "#908880",
+          "#b5aca5",
+          "#d5ccc4",
+          "#f6ede5"
+        ]
+      },
+      "stone-text": {
+        "role": "neutral",
+        "displayName": "Stone Text",
+        "canonical": "#6b6560",
+        "oklch": "oklch(51.1% 0.011 62.4)",
+        "tonalRamp": [
+          "#0f0a07",
+          "#2a2521",
+          "#49443f",
+          "#6b6560",
+          "#8e8883",
+          "#b3ada7",
+          "#d3ccc7",
+          "#f4ede7"
+        ]
+      },
+      "ledger-ink": {
+        "role": "neutral",
+        "displayName": "Ledger Ink",
+        "canonical": "#1a1a1a",
+        "oklch": "oklch(21.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#cecece",
+          "#eeeeee"
+        ]
+      },
+      "alert-red": {
+        "role": "signal",
+        "displayName": "Alert Red",
+        "canonical": "#dc2626",
+        "oklch": "oklch(57.7% 0.215 27.3)",
+        "tonalRamp": [
+          "#210000",
+          "#500002",
+          "#860008",
+          "#c10011",
+          "#ef3d38",
+          "#ff8578",
+          "#ffbab1",
+          "#ffe9e5"
+        ]
+      },
+      "alert-red-hover": {
+        "role": "signal",
+        "displayName": "Alert Red Hover",
+        "canonical": "#b91c1c",
+        "oklch": "oklch(50.5% 0.190 27.5)",
+        "tonalRamp": [
+          "#210000",
+          "#500002",
+          "#860007",
+          "#bb1e1e",
+          "#e54d43",
+          "#ff8578",
+          "#ffbab1",
+          "#ffe9e5"
+        ]
+      },
+      "gain-green": {
+        "role": "signal",
+        "displayName": "Gain Green",
+        "canonical": "#16a34a",
+        "oklch": "oklch(62.7% 0.170 149.2)",
+        "tonalRamp": [
+          "#001002",
+          "#00300f",
+          "#005421",
+          "#007b33",
+          "#18a44b",
+          "#4fcb6f",
+          "#72ec8f",
+          "#c8ffd0"
+        ]
+      },
+      "caution-amber": {
+        "role": "signal",
+        "displayName": "Caution Amber",
+        "canonical": "#d97706",
+        "oklch": "oklch(66.6% 0.157 58.3)",
+        "tonalRamp": [
+          "#180600",
+          "#3e1c00",
+          "#693600",
+          "#985100",
+          "#ca6e00",
+          "#f69136",
+          "#ffbe8c",
+          "#ffeadb"
+        ]
+      },
+      "gain-wash": {
+        "role": "signal",
+        "displayName": "Gain Wash",
+        "canonical": "#dcfce7",
+        "oklch": "oklch(96.2% 0.043 156.7)",
+        "tonalRamp": [
+          "#001005",
+          "#122d1e",
+          "#314c3c",
+          "#526e5c",
+          "#74917f",
+          "#98b7a3",
+          "#b8d7c2",
+          "#d8f8e3"
+        ]
+      },
+      "gain-ink": {
+        "role": "signal",
+        "displayName": "Gain Ink",
+        "canonical": "#166534",
+        "oklch": "oklch(44.8% 0.108 151.3)",
+        "tonalRamp": [
+          "#001003",
+          "#003012",
+          "#005426",
+          "#2d7745",
+          "#539c67",
+          "#78c28b",
+          "#97e2aa",
+          "#c6ffd3"
+        ]
+      },
+      "caution-wash": {
+        "role": "signal",
+        "displayName": "Caution Wash",
+        "canonical": "#fef3c7",
+        "oklch": "oklch(96.2% 0.058 95.6)",
+        "tonalRamp": [
+          "#100b00",
+          "#2f2600",
+          "#4e451e",
+          "#70663f",
+          "#948961",
+          "#b9ae84",
+          "#d9cea3",
+          "#faefc3"
+        ]
+      },
+      "caution-ink": {
+        "role": "signal",
+        "displayName": "Caution Ink",
+        "canonical": "#92400e",
+        "oklch": "oklch(47.3% 0.125 46.2)",
+        "tonalRamp": [
+          "#1c0300",
+          "#441600",
+          "#722d00",
+          "#9e4b1d",
+          "#c66f43",
+          "#ee9468",
+          "#ffbc9d",
+          "#ffe9e0"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and dialog titles."
+      },
+      "metric": {
+        "displayName": "Metric",
+        "purpose": "Headline figure inside a metric card."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Working text size across tables, forms and lists."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, nav items, field labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Helper text, timestamps, badges."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rest",
+        "value": "0 1px 2px 0 rgb(0 0 0 / 0.03)",
+        "purpose": "Cards and primary buttons at rest."
+      },
+      {
+        "name": "lift",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)",
+        "purpose": "Clickable cards on hover."
+      },
+      {
+        "name": "float",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05)",
+        "purpose": "Dialogs and toasts."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "200ms (Tailwind default ease)",
+        "purpose": "Buttons, nav items and card hover."
+      },
+      {
+        "name": "drawer",
+        "value": "200ms ease-in-out",
+        "purpose": "Mobile sidebar slide."
+      },
+      {
+        "name": "toast-lifetime",
+        "value": "4000ms",
+        "purpose": "Toast auto-dismiss."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one loud action on a screen: save, record sale, sign in.",
+      "html": "<button class=\"ds-btn-primary\">Record sale</button>",
+      "css": ".ds-btn-primary{font-family:Inter,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:8px 16px;border-radius:12px;font-size:14px;font-weight:500;line-height:20px;cursor:pointer;transition:all .2s;white-space:nowrap;background:#ad4f2d;color:#fff;border:0;box-shadow:0 1px 2px 0 rgb(0 0 0/.03)}.ds-btn-primary:hover{background:#9a4527}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 2px #FAF9F7,0 0 0 4px #ad4f2d;}.ds-btn-primary:active{background:#9a4527}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions on white surfaces: cancel, edit, filter.",
+      "html": "<button class=\"ds-btn-outline\">Edit product</button>",
+      "css": ".ds-btn-outline{font-family:Inter,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:8px 16px;border-radius:12px;font-size:14px;font-weight:500;line-height:20px;cursor:pointer;transition:all .2s;white-space:nowrap;background:#fff;color:#1a1a1a;border:1px solid #e8e2db}.ds-btn-outline:hover{background:#f5f0eb}.ds-btn-outline:focus-visible{outline:none;box-shadow:0 0 0 2px #FAF9F7,0 0 0 4px #ad4f2d;}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Irreversible actions such as deleting a product or contact.",
+      "html": "<button class=\"ds-btn-destructive\">Delete</button>",
+      "css": ".ds-btn-destructive{font-family:Inter,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:8px 16px;border-radius:12px;font-size:14px;font-weight:500;line-height:20px;cursor:pointer;transition:all .2s;white-space:nowrap;background:#dc2626;color:#fff;border:0;box-shadow:0 1px 2px 0 rgb(0 0 0/.03)}.ds-btn-destructive:hover{background:#b91c1c}.ds-btn-destructive:focus-visible{outline:none;box-shadow:0 0 0 2px #FAF9F7,0 0 0 4px #ad4f2d;}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Single-line field for names, serial numbers and prices.",
+      "html": "<input class=\"ds-input\" placeholder=\"Serial number or IMEI\" />",
+      "css": ".ds-input{font-family:Inter,ui-sans-serif,system-ui,sans-serif;display:flex;width:100%;height:40px;padding:8px 12px;border:1px solid #8f8780;border-radius:12px;background:#fff;color:#1a1a1a;font-size:14px;line-height:20px;box-sizing:border-box;transition:colors .2s}.ds-input::placeholder{color:#6b6560}.ds-input:focus-visible{outline:none;box-shadow:0 0 0 1px #FAF9F7,0 0 0 3px #ad4f2d}"
+    },
+    {
+      "name": "Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Sidebar link; active state fills with Clay Tint and clay text.",
+      "html": "<a class=\"ds-nav ds-nav-active\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\"/></svg>Dashboard</a>",
+      "css": ".ds-nav{font-family:Inter,ui-sans-serif,system-ui,sans-serif;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;font-size:14px;font-weight:500;line-height:20px;color:#6b6560;text-decoration:none;transition:colors .2s}.ds-nav:hover{background:#f5f0eb;color:#1a1a1a}.ds-nav-active,.ds-nav-active:hover{background:#f7edea;color:#ad4f2d}"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Dashboard figure: muted title and icon, headline number, caption.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-top\"><span class=\"ds-card-title\">Monthly Profit</span><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"12\" y1=\"2\" x2=\"12\" y2=\"22\"/><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"/></svg></div><div class=\"ds-card-value\">$1,240.00</div><p class=\"ds-card-note\">net profit this month</p></div>",
+      "css": ".ds-card{font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#fff;border:1px solid #e8e2db;border-radius:16px;padding:24px;box-shadow:0 1px 2px 0 rgb(0 0 0/.03);color:#1a1a1a;transition:box-shadow .2s}.ds-card:hover{box-shadow:0 4px 6px -1px rgb(0 0 0/.05),0 2px 4px -2px rgb(0 0 0/.05)}.ds-card-top{display:flex;align-items:center;justify-content:space-between;color:#6b6560;margin-bottom:8px}.ds-card-title{font-size:14px;font-weight:500}.ds-card-value{font-size:24px;font-weight:700;line-height:32px;color:#16a34a}.ds-card-note{margin:4px 0 0;font-size:12px;color:#6b6560}"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge-success",
+      "description": "Round status chips: success, warning, secondary, destructive.",
+      "html": "<span class=\"ds-badge ds-badge-success\">Available</span> <span class=\"ds-badge ds-badge-warning\">Reserved</span> <span class=\"ds-badge ds-badge-secondary\">Sold</span> <span class=\"ds-badge ds-badge-destructive\">For Parts</span>",
+      "css": ".ds-badge{font-family:Inter,ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500;line-height:16px}.ds-badge-success{background:#dcfce7;color:#166534}.ds-badge-warning{background:#fef3c7;color:#92400e}.ds-badge-secondary{background:#f5f0eb;color:#1a1a1a}.ds-badge-destructive{background:#dc2626;color:#fff}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Counter Ledger",
+    "overview": "ASNOR looks like a well-kept shop ledger that happens to be a web app: cream paper, a single clay-terracotta ink, hairline rules between rows, and figures set plainly so a price or a profit can be read at a glance across a counter. It is a working tool used all day by the owner and staff of a tech-resale shop, so the interface stays calm and gets out of the way. The warmth is real but quiet; nothing performs.\n\nThe mood is calm, warm and readable. It must never read as a cold enterprise dashboard, a neon fintech console, or a dense spreadsheet grid. Density is moderate and generous: 24px card padding, 32px between page sections, 14px body text. Colour is rationed so the one loud thing on any screen is the next action.",
+    "keyCharacteristics": [
+      "Cream page, white cards, warm hairline borders; depth is mostly borders and tone.",
+      "One accent, clay terracotta, for the primary action, the active nav item and the lead chart series.",
+      "Green and red appear only as money signals (gain/loss, growth) and status, never as decoration.",
+      "Inter throughout, sentence case, weights 400 to 700, no display face.",
+      "Soft, restrained controls: 12px control corners, 16px card corners, near-invisible shadows."
+    ],
+    "rules": [
+      {
+        "name": "The Field Edge Rule",
+        "body": "A control's boundary is Field Border; a container's boundary is Warm Hairline. Never use the hairline to outline something the user has to type into.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Clay Voice Rule",
+        "body": "Clay terracotta is the only accent. If a second thing on a screen is terracotta and neither is the primary action or the current location, one of them is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Money Signal Rule",
+        "body": "Green and red mean money or state (gain and loss, sell and buy price, available and for-parts), nothing else. They are never used to tint a card, a header or an icon for atmosphere.",
+        "section": "colors"
+      },
+      {
+        "name": "The Warm Neutral Rule",
+        "body": "Every neutral leans warm (cream, parchment, sand, stone). No cool grey or pure black is introduced; ink is #1a1a1a.",
+        "section": "colors"
+      },
+      {
+        "name": "The Plain Figures Rule",
+        "body": "Prices, counts and profits are set in Inter at the same weight as their neighbours (or 700 for the single headline metric), with tabular numerals so columns and metric rows align. No display numerals, no monospaced decoration, no gradient text.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ambient Lift Rule",
+        "body": "Shadows never exceed 5% black. A shadow that can be seen on its own is too strong; it exists to hint at a layer, not to draw it.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep Clay Terracotta (#ad4f2d) for the primary action, active location, focus rings, links and the lead chart series.",
+      "**Do** sit content on Card White over Ledger Cream with a 1px Warm Hairline, and keep shadows at or below the Rest, Lift and Float values.",
+      "**Do** use Gain Green and Alert Red only for money and state (profit, loss, growth, prices, status), and always pair them with a sign, a label or an icon so colour is never the only cue.",
+      "**Do** keep controls at 40px tall with 12px corners and the clay focus ring, and cards at 16px corners with 24px padding.",
+      "**Do** set secondary information in Stone Text at 12 to 14px under the primary line, as the dashboard list rows do."
+    ],
+    "donts": [
+      "**Don't** introduce a second accent hue, a gradient, or a cool grey; the palette is warm neutrals plus clay.",
+      "**Don't** make it look like a cold enterprise dashboard, a neon fintech console or a dense spreadsheet grid.",
+      "**Don't** use shadows that read as a dark outline, or use elevation to rank importance on the page; use size and weight instead.",
+      "**Don't** tint whole cards, headers or backgrounds green or red.",
+      "**Don't** add a display typeface or monospaced numerals for effect; Inter at its existing weights carries the system.",
+      "**Don't** use pill-shaped buttons or inputs; full rounding belongs to badges and avatar chips."
+    ]
+  }
+}

@@ -1,0 +1,352 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, ArrowLeftRight, ChevronLeft, ChevronRight, ShoppingCart, DollarSign } from "lucide-react";
+import { createBuyTransaction, createSellTransaction } from "./actions";
+import { useToast } from "@/components/ui/toast";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import type { TransactionWithRelations } from "./actions";
+
+interface TransactionListProps {
+  transactions: TransactionWithRelations[];
+  total: number;
+  pages: number;
+  currentPage: number;
+}
+
+export function TransactionList({ transactions, total, pages, currentPage }: TransactionListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { addToast } = useToast();
+  const [searchValue, setSearchValue] = useState(searchParams.get("search") || "");
+  const [showBuyDialog, setShowBuyDialog] = useState(false);
+  const [showSellDialog, setShowSellDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [products, setProducts] = useState<{ id: string; name: string; type: string; quantity: number; sellingPrice: string | null }[]>([]);
+  const [contacts, setContacts] = useState<{ id: string; name: string; type: string }[]>([]);
+
+  // Fetch products and contacts when dialog opens
+  useEffect(() => {
+    if (showBuyDialog || showSellDialog) {
+      fetch("/api/transactions/data")
+        .then((res) => res.json())
+        .then((data) => {
+          setProducts(data.products || []);
+          setContacts(data.contacts || []);
+        })
+        .catch(() => {});
+    }
+  }, [showBuyDialog, showSellDialog]);
+
+  function updateFilters(key: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    params.delete("page");
+    router.push(`/transactions?${params.toString()}`);
+  }
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    updateFilters("search", searchValue);
+  }
+
+  async function handleBuy(formData: FormData) {
+    setIsLoading(true);
+    const result = await createBuyTransaction(formData);
+    setIsLoading(false);
+
+    if (result.error) {
+      addToast(result.error, "error");
+    } else {
+      addToast("Purchase recorded", "success");
+      setShowBuyDialog(false);
+    }
+  }
+
+  async function handleSell(formData: FormData) {
+    setIsLoading(true);
+    const result = await createSellTransaction(formData);
+    setIsLoading(false);
+
+    if (result.error) {
+      addToast(result.error, "error");
+    } else {
+      addToast("Sale recorded", "success");
+      setShowSellDialog(false);
+    }
+  }
+
+  // Products are already filtered by status on the server.
+  const availableProducts = products;
+
+  const suppliers = contacts.filter((c) => c.type === "SUPPLIER" || c.type === "BOTH");
+  const customers = contacts.filter((c) => c.type === "CUSTOMER" || c.type === "BOTH");
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1 max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search transactions..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button type="submit" variant="secondary">Search</Button>
+        </form>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowBuyDialog(true)}>
+            <ShoppingCart className="h-4 w-4" />
+            Record Purchase
+          </Button>
+          <Button onClick={() => setShowSellDialog(true)}>
+            <DollarSign className="h-4 w-4" />
+            Record Sale
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-2">
+        <Select
+          value={searchParams.get("type") || ""}
+          onChange={(e) => updateFilters("type", e.target.value)}
+          className="w-40"
+        >
+          <option value="">All Types</option>
+          <option value="BUY">Purchases</option>
+          <option value="SELL">Sales</option>
+        </Select>
+      </div>
+
+      {/* Results */}
+      <Card>
+        <CardContent className="p-0">
+          {transactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <ArrowLeftRight className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium">No transactions yet</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Record your first purchase or sale to get started
+              </p>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" onClick={() => setShowBuyDialog(true)}>
+                  <ShoppingCart className="h-4 w-4" />
+                  Record Purchase
+                </Button>
+                <Button onClick={() => setShowSellDialog(true)}>
+                  <DollarSign className="h-4 w-4" />
+                  Record Sale
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Profit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell>
+                        <Badge variant={tx.type === "BUY" ? "secondary" : "success"}>
+                          {tx.type === "BUY" ? "Purchase" : "Sale"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/inventory/${tx.product.id}`} className="font-medium hover:underline">
+                          {tx.product.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {tx.quantity} × {formatCurrency(tx.unitPrice.toString())}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {tx.contact ? (
+                          <Link href={`/contacts/${tx.contact.id}`} className="hover:underline">
+                            {tx.contact.name}
+                          </Link>
+                        ) : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(tx.date)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(tx.totalPrice.toString())}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {tx.profit ? (
+                          <span className={Number(tx.profit) >= 0 ? "text-success-ink font-medium" : "text-destructive font-medium"}>
+                            {formatCurrency(tx.profit.toString())}
+                          </span>
+                        ) : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {pages > 1 && (
+                <div className="flex items-center justify-between border-t px-4 py-3">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * 20 + 1}–{Math.min(currentPage * 20, total)} of {total}
+                  </p>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" disabled={currentPage <= 1}
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set("page", String(currentPage - 1));
+                        router.push(`/transactions?${params.toString()}`);
+                      }}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={currentPage >= pages}
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set("page", String(currentPage + 1));
+                        router.push(`/transactions?${params.toString()}`);
+                      }}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Buy Dialog */}
+      <Dialog open={showBuyDialog} onOpenChange={setShowBuyDialog}>
+        <DialogContent onClose={() => setShowBuyDialog(false)} className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Purchase</DialogTitle>
+          </DialogHeader>
+          <form action={handleBuy} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="buy-productId">Product *</Label>
+              <Select id="buy-productId" name="productId" required>
+                <option value="">Select product</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="buy-contactId">Supplier</Label>
+              <Select id="buy-contactId" name="contactId">
+                <option value="">No supplier</option>
+                {suppliers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="buy-quantity">Quantity</Label>
+                <Input id="buy-quantity" name="quantity" type="number" min="1" defaultValue="1" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="buy-unitPrice">Unit Price ($) *</Label>
+                <Input id="buy-unitPrice" name="unitPrice" type="number" step="0.01" min="0" required placeholder="0.00" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="buy-date">Date</Label>
+              <Input id="buy-date" name="date" type="date" defaultValue={new Date().toISOString().split("T")[0]} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="buy-notes">Notes</Label>
+              <Textarea id="buy-notes" name="notes" placeholder="Purchase details..." rows={2} />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowBuyDialog(false)}>Cancel</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Recording..." : "Record Purchase"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sell Dialog */}
+      <Dialog open={showSellDialog} onOpenChange={setShowSellDialog}>
+        <DialogContent onClose={() => setShowSellDialog(false)} className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Sale</DialogTitle>
+          </DialogHeader>
+          <form action={handleSell} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sell-productId">Product *</Label>
+              <Select id="sell-productId" name="productId" required>
+                <option value="">Select product</option>
+                {availableProducts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.type === "ACCESSORY" ? `(${p.quantity} in stock)` : ""}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sell-contactId">Customer</Label>
+              <Select id="sell-contactId" name="contactId">
+                <option value="">No customer</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="sell-quantity">Quantity</Label>
+                <Input id="sell-quantity" name="quantity" type="number" min="1" defaultValue="1" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sell-unitPrice">Selling Price ($) *</Label>
+                <Input id="sell-unitPrice" name="unitPrice" type="number" step="0.01" min="0" required placeholder="0.00" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sell-date">Date</Label>
+              <Input id="sell-date" name="date" type="date" defaultValue={new Date().toISOString().split("T")[0]} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sell-notes">Notes</Label>
+              <Textarea id="sell-notes" name="notes" placeholder="Sale details..." rows={2} />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowSellDialog(false)}>Cancel</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Recording..." : "Record Sale"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum ProductType {
+  DEVICE
+  ACCESSORY
+}
+
+enum Condition {
+  BRAND_NEW
+  SECONDHAND
+  FOR_PARTS
+}
+
+enum ProductStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum TransactionType {
+  BUY
+  SELL
+}
+
+enum ContactType {
+  SUPPLIER
+  CUSTOMER
+  BOTH
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  hashedPassword String
+  role           Role     @default(STAFF)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id           String        @id @default(cuid())
+  name         String
+  brand        String?
+  model        String?
+  color        String?
+  type         ProductType   @default(DEVICE)
+  categoryId   String
+  category     Category      @relation(fields: [categoryId], references: [id])
+  condition    Condition     @default(BRAND_NEW)
+  status       ProductStatus @default(AVAILABLE)
+  serialNumber String?       @unique
+  imei         String?       @unique
+  quantity     Int           @default(1)
+  lowStockThreshold Int?
+  purchasePrice Decimal?    @db.Decimal(10, 2)
+  sellingPrice  Decimal?    @db.Decimal(10, 2)
+  batteryHealth Int?
+  scratchesMarkings Boolean @default(false)
+  displayScratches  Boolean @default(false)
+  dents             Boolean @default(false)
+  serviceBattery    Boolean @default(false)
+  faceIdNotWorking  Boolean @default(false)
+  /// For DEVICE products with condition FOR_PARTS: free-text list/notes of
+  /// which parts have already been salvaged/removed from this unit.
+  salvagedParts String?
+  notes        String?
+  images       ProductImage[]
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("products")
+}
+
+model ProductImage {
+  id          String  @id @default(cuid())
+  url         String
+  publicId    String
+  isPrimary   Boolean @default(false)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@map("product_images")
+}
+
+model Contact {
+  id           String        @id @default(cuid())
+  name         String
+  type         ContactType   @default(CUSTOMER)
+  phone        String?
+  email        String?
+  address      String?
+  notes        String?
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("contacts")
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  date        DateTime        @default(now())
+  productId   String
+  product     Product         @relation(fields: [productId], references: [id])
+  contactId   String?
+  contact     Contact?        @relation(fields: [contactId], references: [id])
+  quantity    Int             @default(1)
+  unitPrice   Decimal         @db.Decimal(10, 2)
+  totalPrice  Decimal         @db.Decimal(10, 2)
+  profit      Decimal?        @db.Decimal(10, 2)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("transactions")
+}
