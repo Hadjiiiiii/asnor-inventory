@@ -1,5 +1,7 @@
 # ASNOR Inventory Management System
 
+[![CI](https://github.com/Hadjiiiiii/asnor-inventory/actions/workflows/ci.yml/badge.svg)](https://github.com/Hadjiiiiii/asnor-inventory/actions/workflows/ci.yml)
+
 A web-based inventory management system built for tech resale businesses. Track phones, tablets, laptops, and accessories with buy/sell transaction tracking, profit calculation, and team collaboration.
 
 ## Features
