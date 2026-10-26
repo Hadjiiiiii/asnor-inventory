@@ -2,7 +2,25 @@
 
 [![CI](https://github.com/Hadjiiiiii/asnor-inventory/actions/workflows/ci.yml/badge.svg)](https://github.com/Hadjiiiiii/asnor-inventory/actions/workflows/ci.yml)
 
-A web-based inventory management system built for tech resale businesses. Track phones, tablets, laptops, and accessories with buy/sell transaction tracking, profit calculation, and team collaboration.
+Inventory and sales tracking for a phone and electronics resale shop: every device by serial/IMEI, every buy and sell, profit per sale.
+
+**Live demo:** https://asnor-inventory.vercel.app (sign in with the [demo login](#demo-login))
+
+![ASNOR demo: sign in, dashboard, add a product, record a sale, see the profit](docs/demo.gif)
+
+**What's interesting here:** the public demo runs on its own database with fake seed data, split from real shop data; Admin and Staff roles gate routes and actions; devices are tracked one by one by serial/IMEI while accessories are tracked by quantity.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  B[Browser] --> N["Next.js App Router<br/>Vercel (sin1)"]
+  N --> A["Auth.js<br/>JWT sessions, Admin/Staff"]
+  N --> P[Prisma]
+  P --> D[("Neon Postgres<br/>asnor-demo (Singapore)")]
+  N -- image uploads --> C[Cloudinary]
+  B -. loads images .-> C
+```
 
 ## Features
 
@@ -29,7 +47,7 @@ A web-based inventory management system built for tech resale businesses. Track 
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20.9+ (CI uses 22)
 - PostgreSQL database (local or cloud — [Neon](https://neon.tech) has a free tier)
 - Cloudinary account (free: [cloudinary.com](https://cloudinary.com))
 
@@ -38,25 +56,28 @@ A web-based inventory management system built for tech resale businesses. Track 
 1. **Clone and install dependencies:**
    ```bash
    cd ASNOR
-   npm install --legacy-peer-deps
+   npm ci
    ```
 
 2. **Configure environment variables:**
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` with your credentials:
-   - `DATABASE_URL` — PostgreSQL connection string
-   - `AUTH_SECRET` — Generate with `openssl rand -base64 32`
-   - `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` — Your Cloudinary cloud name
-   - `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` — From Cloudinary dashboard
+   Fill in `.env` (names only here, never commit values):
+   - `DATABASE_URL`: PostgreSQL connection string for your own data
+   - `AUTH_SECRET`: generate with `openssl rand -base64 32`
+   - `AUTH_URL`: `http://localhost:3000` for local dev
+   - `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: from the Cloudinary dashboard
+   - `SHOP_TIMEZONE`: IANA zone the dashboard's "today" follows
 
-3. **Set up the database:**
+3. **Set up the demo database** (a separate Postgres database with fake data):
    ```bash
+   # .env.demo.local holds DEMO_DATABASE_URL, which must differ from DATABASE_URL
    npm run db:generate   # Generate Prisma client
-   npm run db:push       # Push schema to database
-   npm run db:seed       # Seed with sample data
+   npm run demo:push     # Push the schema to the demo database
+   npm run demo:seed     # Wipe the demo database and fill it with fake data
    ```
+   `demo:seed` refuses to run if `DEMO_DATABASE_URL` is missing or points at the same database as `DATABASE_URL`.
 
 4. **Run the development server:**
    ```bash
@@ -64,12 +85,14 @@ A web-based inventory management system built for tech resale businesses. Track 
    ```
    Open [http://localhost:3000](http://localhost:3000)
 
-### Demo Credentials
+### Demo login
 
 | Role  | Email             | Password |
 |-------|-------------------|----------|
 | Admin | admin@asnor.com   | admin123 |
 | Staff | staff@asnor.com   | staff123 |
+
+The live demo hands out an Admin login, so visitors can edit or delete demo data. The data is fake and nothing resets it automatically: re-run `npm run demo:seed` after showing the demo to someone.
 
 ## Project Structure
 
@@ -105,6 +128,8 @@ src/
 | `npm run start` | Start production server |
 | `npm run db:push` | Push schema changes to database |
 | `npm run db:seed` | Seed database with sample data |
+| `npm run demo:push` | Push schema to the demo database (`DEMO_DATABASE_URL`) |
+| `npm run demo:seed` | Reset the demo database with fake data |
 | `npm run db:studio` | Open Prisma Studio (database GUI) |
 | `npm run db:migrate` | Create and apply migrations |
 | `npm run db:generate` | Regenerate Prisma client |
