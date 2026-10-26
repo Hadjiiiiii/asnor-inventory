@@ -48,3 +48,6 @@ next-env.d.ts
 /PLAN.md
 /docs/requirements/
 /changes.log
+
+# impeccable critique reports (generated, local paths)
+/.impeccable/critique/

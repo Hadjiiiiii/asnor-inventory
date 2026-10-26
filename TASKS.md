@@ -19,9 +19,10 @@ Done when: tests pass and the GitHub-rendered README shows pitch, GIF and diagra
 Result: 35/35 tests pass, lint 0 errors (1 old <img> warning), typecheck clean. code-review: fixed reset wording and Node version; open: confirm sin1 / Singapore regions match Vercel and Neon, GIF lands via T2.
 Gotcha: the public demo hands out an Admin login. Say in the README that data resets; re-run `demo:seed` after showing it.
 
-## T3 🔒 (claude-code, main checkout) Secret check before going public
-- [ ] 1. `git ls-files | grep -Ei 'env|secret'` shows only `.env.example`.
-- [ ] 2. Scan all history: `npx gitleaks detect --source . --log-opts="--all"` (or `git log -p --all | grep -Ei 'DATABASE_URL=|AUTH_SECRET=|CLOUDINARY_API_SECRET='`).
-- [ ] 3. Anything found → stop. Rotate that secret first; don't flip the repo public.
-- [ ] 4. Decide on untracked `.impeccable/critique/`: commit it or add to `.gitignore`. (Push is the user's call, not this thread.)
+## T3 ✅ Secret check before going public
+- [x] 1. `git ls-files | grep -Ei 'env|secret'` shows only `.env.example`.
+- [x] 2. Scan all history: `npx gitleaks detect --source . --log-opts="--all"` (or `git log -p --all | grep -Ei 'DATABASE_URL=|AUTH_SECRET=|CLOUDINARY_API_SECRET='`).
+- [x] 3. Anything found → stop. Rotate that secret first; don't flip the repo public.
+- [x] 4. Decide on untracked `.impeccable/critique/`: commit it or add to `.gitignore`. (Push is the user's call, not this thread.)
 Done when: scan is clean and `git status` is clean.
+Result: tracked env/secret files = `.env.example` only. gitleaks not installed, so history was scanned with `git log -p --all`: every connection string is a test fixture (example/localhost/fake Neon hosts, 1–8 char placeholder passwords); AUTH_SECRET / CLOUDINARY_* values only appear as empty strings in `.env.example` or placeholder CI values in `ci.yml`; no private keys or provider tokens. Nothing to rotate. `.impeccable/critique/` added to `.gitignore` (generated report); `Day6&7.md` excluded locally via `.git/info/exclude`.
